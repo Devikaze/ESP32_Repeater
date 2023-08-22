@@ -1,27 +1,16 @@
-/* ESP32 HTTP IoT Server Example for Wokwi.com
 
-  https://wokwi.com/arduino/projects/320964045035274834
-
-  To test, you need the Wokwi IoT Gateway, as explained here:
-
-  https://docs.wokwi.com/guides/esp32-wifi#the-private-gateway
-
-  Then start the simulation, and open http://localhost:9080
-  in another browser tab.
-
-  Note that the IoT Gateway requires a Wokwi Club subscription.
-  To purchase a Wokwi Club subscription, go to https://wokwi.com/club
-*/
 
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WebServer.h>
 #include <uri/UriBraces.h>
 
-#define WIFI_SSID "Wokwi-GUEST"
-#define WIFI_PASSWORD ""
 // Defining the WiFi channel speeds up the connection:
 #define WIFI_CHANNEL 6
+
+String password_Wifi = "";
+String ssid_Wifi = "";
+
 
 WebServer server(80);
 
@@ -30,6 +19,69 @@ const int LED2 = 27;
 
 bool led1State = false;
 bool led2State = false;
+
+void wifiScan(){
+if (WiFi.status() == WL_CONNECTED) {
+    return;
+  }
+  Serial.println("scan start");
+  // WiFi.scanNetworks will return the number of networks found
+  int n = WiFi.scanNetworks();
+
+  Serial.println("scan done");
+
+  if (n == 0) {
+      Serial.println("no networks found");
+  } else {
+    Serial.print(n);
+    Serial.println(" networks found");
+    for (int i = 0; i < n; ++i) {
+      // Print SSID and RSSI for each network found
+      Serial.print(i + 1);
+      Serial.print(": ");
+      Serial.print(WiFi.SSID(i));
+      Serial.print(" (");
+      Serial.print(WiFi.RSSI(i));
+      Serial.print(")");
+      Serial.println((WiFi.encryptionType(i) == WIFI_AUTH_OPEN)?" ":"*");
+
+      delay(10);
+    }
+  }
+  Serial.println("\nWhat Network would you like to join?");
+
+  while (Serial.available() == 0) {
+  }
+
+  int menuChoice = Serial.parseInt();
+
+  ssid_Wifi = WiFi.SSID(menuChoice - 1);
+
+  Serial.println(ssid_Wifi);
+
+  if(WiFi.encryptionType(menuChoice - 1) == 0){
+    password_Wifi = "";
+  }
+  else {
+    Serial.println("Please enter your password: ");
+    delay(5000);
+    while (Serial.available() > 0) {
+    password_Wifi = Serial.readStringUntil('\n');
+    }
+    Serial.println(password_Wifi);
+  }
+
+  WiFi.begin(ssid_Wifi,password_Wifi,6);
+  
+  Serial.print("Connecting to WiFi");
+  
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.print(".");
+  }
+  
+  Serial.println("\nConnected to WiFi");
+}
 
 void sendHtml() {
   String response = R"(
@@ -68,12 +120,19 @@ void sendHtml() {
 
 void setup(void) {
   Serial.begin(115200);
+  WiFi.mode(WIFI_AP_STA);
   pinMode(LED1, OUTPUT);
   pinMode(LED2, OUTPUT);
+String password_AP = "12345678";
+String ssid_AP = "ESP32" ;
+  WiFi.softAP(ssid_AP,password_AP);
+  Serial.println("Created AP");
+  Serial.println(WiFi.softAPIP());
 
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD, WIFI_CHANNEL);
+  wifiScan();
+
   Serial.print("Connecting to WiFi ");
-  Serial.print(WIFI_SSID);
+  Serial.print(ssid_Wifi);
   // Wait for connection
   while (WiFi.status() != WL_CONNECTED) {
     delay(100);
